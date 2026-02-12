@@ -1,0 +1,234 @@
+;;; aide-persp-side-bar.el --- Sidebar for perspective.el -*- lexical-binding: t; -*-
+
+;; Copyright (C) 2025 Omura Shuto
+
+;; Author: Omura Shuto <somura-vanilla@so-icecream.com>
+;; Maintainer: Omura Shuto <somura-vanilla@so-icecream.com>
+;; URL: https://github.com/so-vanilla/aide
+;; Version: 0.1.0
+;; Package-Requires: ((emacs "25.1") (perspective "2.0"))
+;; Keywords: convenience, frames
+
+;; This file is NOT part of GNU Emacs.
+
+;; This program is free software: you can redistribute it and/or modify
+;; it under the terms of the GNU General Public License as published by
+;; the Free Software Foundation, either version 3 of the License, or
+;; (at your option) any later version.
+
+;; This program is distributed in the hope that it will be useful,
+;; but WITHOUT ANY WARRANTY; without even the implied warranty of
+;; MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+;; GNU General Public License for more details.
+
+;; You should have received a copy of the GNU General Public License
+;; along with this program.  If not, see <https://www.gnu.org/licenses/>.
+
+;;; Commentary:
+
+;; aide-persp-side-bar provides a sidebar window that displays all perspectives
+;; registered in perspective.el.  The current perspective is highlighted,
+;; and you can switch perspectives by clicking or pressing RET on the name.
+;;
+;; Features:
+;; - Display all perspectives in a side window
+;; - Highlight the current perspective
+;; - Quick navigation between perspectives
+;; - Auto-refresh when perspectives change
+;; - Optional auto-show when creating new perspective
+;;
+;; Usage:
+;;   M-x aide-persp-side-bar-show    - Show the sidebar
+;;   M-x aide-persp-side-bar-toggle  - Toggle the sidebar
+;;   M-x aide-persp-side-bar-close   - Close the sidebar
+;;   M-x aide-persp-side-bar-focus   - Focus on the sidebar
+;;
+;; Keybindings in the sidebar:
+;;   n, j  - Next perspective
+;;   p, k  - Previous perspective
+;;   RET   - Switch to perspective at point
+;;   SPC   - Switch to perspective at point
+;;   g     - Refresh sidebar
+;;   r     - Reset sidebar width
+;;   q     - Close sidebar
+
+;;; Code:
+
+(require 'perspective)
+
+;; Variables
+(defvar aide-persp-side-bar-buffer-name "*Aide Persp Side Bar*"
+  "Name of the perspective sidebar buffer.")
+
+(defvar aide-persp-side-bar-window nil
+  "Window displaying the perspective sidebar buffer.")
+
+(defcustom aide-persp-side-bar-auto-show-on-new t
+  "Whether to automatically show sidebar when creating new perspective."
+  :type 'boolean
+  :group 'perspective)
+
+;; Core functions
+(defun aide-persp-side-bar-show ()
+  "Show perspective sidebar."
+  (interactive)
+  (let ((buffer (get-buffer-create aide-persp-side-bar-buffer-name)))
+    (with-current-buffer buffer
+      (aide-persp-side-bar--render-buffer))
+    (setq aide-persp-side-bar-window
+          (display-buffer buffer '((display-buffer-in-side-window)
+                                   (side . left)
+                                   (slot . 0)
+                                   (window-width . 30))))
+    (select-window aide-persp-side-bar-window)))
+
+(defun aide-persp-side-bar-toggle ()
+  "Toggle perspective sidebar."
+  (interactive)
+  (let ((buffer (get-buffer aide-persp-side-bar-buffer-name)))
+    (if (and buffer (get-buffer-window buffer))
+        (aide-persp-side-bar-close)
+      (aide-persp-side-bar-show))))
+
+(defun aide-persp-side-bar-close ()
+  "Close perspective sidebar."
+  (interactive)
+  (let ((buffer (get-buffer aide-persp-side-bar-buffer-name)))
+    (when buffer
+      (let ((window (get-buffer-window buffer)))
+        (when window
+          (delete-window window)
+          (setq aide-persp-side-bar-window nil))))))
+
+(defun aide-persp-side-bar-focus ()
+  "Focus on perspective sidebar."
+  (interactive)
+  (let ((buffer (get-buffer aide-persp-side-bar-buffer-name)))
+    (if (and buffer (get-buffer-window buffer))
+        (select-window (get-buffer-window buffer))
+      (aide-persp-side-bar-show))))
+
+(defun aide-persp-side-bar-resize ()
+  "Reset perspective sidebar size."
+  (interactive)
+  (let ((buffer (get-buffer aide-persp-side-bar-buffer-name)))
+    (when buffer
+      (let ((window (get-buffer-window buffer)))
+        (when window
+          (with-selected-window window
+            (window-resize window (- 30 (window-width)) t)))))))
+
+;; Internal functions
+(defun aide-persp-side-bar--render-buffer ()
+  "Render the perspective list in sidebar buffer."
+  (let ((inhibit-read-only t)
+        (keymap (aide-persp-side-bar--create-keymap))
+        (current-persp (persp-current-name))
+        (all-persps (persp-names)))
+    (erase-buffer)
+    (insert "Perspective Side Bar\n")
+    (insert "====================\n\n")
+    (if all-persps
+        (dolist (persp all-persps)
+          (if (string= persp current-persp)
+              ;; Highlight current perspective
+              (insert (propertize (format "► %s\n" persp)
+                                  'face 'highlight))
+            (insert-button persp
+                           'action `(lambda (button)
+                                      (persp-switch ,persp))
+                           'follow-link t)
+            (insert "\n")))
+      (insert "No perspectives\n"))
+    (goto-char (point-min))
+    (setq buffer-read-only t)
+    (use-local-map keymap)))
+
+(defun aide-persp-side-bar--highlight-current ()
+  "Update highlight for current perspective."
+  (when (and aide-persp-side-bar-window
+             (window-live-p aide-persp-side-bar-window))
+    (with-current-buffer (window-buffer aide-persp-side-bar-window)
+      (aide-persp-side-bar--render-buffer))))
+
+(defun aide-persp-side-bar--create-keymap ()
+  "Create keymap for perspective sidebar."
+  (let ((keymap (make-sparse-keymap)))
+    (define-key keymap "n" 'persp-next)
+    (define-key keymap "j" 'persp-next)
+    (define-key keymap "p" 'persp-prev)
+    (define-key keymap "k" 'persp-prev)
+    (define-key keymap (kbd "RET") 'aide-persp-side-bar-select-current)
+    (define-key keymap (kbd "SPC") 'aide-persp-side-bar-select-current)
+    (define-key keymap "q" 'aide-persp-side-bar-close)
+    (define-key keymap "r" 'aide-persp-side-bar-resize)
+    (define-key keymap "g" 'aide-persp-side-bar-refresh)
+    keymap))
+
+(defun aide-persp-side-bar-select-current ()
+  "Select perspective at current line in sidebar buffer."
+  (interactive)
+  (let ((persp-name (thing-at-point 'symbol)))
+    (when (and persp-name (member persp-name (persp-names)))
+      (persp-switch persp-name))))
+
+(defun aide-persp-side-bar-refresh ()
+  "Refresh the sidebar content and update highlight."
+  (interactive)
+  (when (and aide-persp-side-bar-window
+             (window-live-p aide-persp-side-bar-window))
+    (with-current-buffer (window-buffer aide-persp-side-bar-window)
+      (aide-persp-side-bar--render-buffer))))
+
+(defun aide-persp-side-bar-on-new-perspective ()
+  "Handle new perspective creation - show sidebar if enabled."
+  ;; Remember the original window
+  (let ((original-window (selected-window)))
+    ;; Wait briefly until perspective switch completes
+    (run-with-idle-timer 0.01 nil
+                         (lambda ()
+                           (if aide-persp-side-bar-auto-show-on-new
+                               (progn
+                                 ;; Show sidebar (rendering is also performed internally)
+                                 (aide-persp-side-bar-show)
+                                 ;; Return focus to the original window
+                                 (when (window-live-p original-window)
+                                   (select-window original-window)))
+                             ;; Only refresh if auto-show is disabled
+                             (aide-persp-side-bar-refresh))))))
+
+;; Auto-refresh when perspective changes
+(advice-add 'persp-switch :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+;; Phase 1: Basic perspective operation monitoring
+(advice-add 'persp-new :after
+            (lambda (&rest _) (aide-persp-side-bar-on-new-perspective)))
+
+(advice-add 'persp-kill :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-rename :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+;; Phase 2: Additional perspective operation monitoring
+(advice-add 'persp-next :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-prev :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-switch-last :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-kill-others :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-state-load :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(advice-add 'persp-state-restore :after
+            (lambda (&rest _) (aide-persp-side-bar-refresh)))
+
+(provide 'aide-persp-side-bar)
+;;; aide-persp-side-bar.el ends here
