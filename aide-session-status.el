@@ -68,8 +68,12 @@
   "Face for waiting state (awaiting user response).")
 
 (defface aide-session-status-idle
-  '((t :foreground "#5c6370"))
+  '((t :foreground "#98c379"))
   "Face for idle state (ready for input).")
+
+(defface aide-session-status-none
+  '((t :foreground "#5c6370"))
+  "Face for no session state.")
 
 ;;;; Internal variables
 
@@ -229,19 +233,23 @@ Returns \"working\", \"waiting\", \"idle\", or nil if no session."
 
 (defun aide-session-status-format (persp-name)
   "Format the session status for PERSP-NAME as a propertized string.
-Returns a colored indicator string, or nil if no session."
-  (when-let ((status (aide-session-status-get persp-name)))
-    (let ((face (pcase status
-                  ("working" 'aide-session-status-working)
-                  ("waiting" 'aide-session-status-waiting)
-                  ("idle" 'aide-session-status-idle)
-                  (_ 'aide-session-status-idle)))
-          (label (pcase status
-                   ("working" "working")
-                   ("waiting" "waiting")
-                   ("idle" "idle")
-                   (_ status))))
-      (propertize (format "● %s" label) 'face face))))
+Returns a colored indicator string.  When `aide-session-status-mode' is
+active but no session exists, returns a \"no session\" indicator."
+  (let ((status (aide-session-status-get persp-name)))
+    (if status
+        (let ((face (pcase status
+                      ("working" 'aide-session-status-working)
+                      ("waiting" 'aide-session-status-waiting)
+                      ("idle" 'aide-session-status-idle)
+                      (_ 'aide-session-status-idle)))
+              (label (pcase status
+                       ("working" "working")
+                       ("waiting" "waiting")
+                       ("idle" "idle")
+                       (_ status))))
+          (propertize (format "● %s" label) 'face face))
+      (when aide-session-status-mode
+        (propertize "○ no session" 'face 'aide-session-status-none)))))
 
 ;;;; Minor mode
 

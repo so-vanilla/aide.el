@@ -69,9 +69,8 @@
   :group 'perspective)
 
 ;; Core functions
-(defun aide-persp-side-bar-show ()
-  "Show perspective sidebar."
-  (interactive)
+(defun aide-persp-side-bar--ensure-displayed ()
+  "Ensure sidebar window exists and is rendered.  Does not change focus."
   (let ((buffer (get-buffer-create aide-persp-side-bar-buffer-name)))
     (with-current-buffer buffer
       (aide-persp-side-bar--render-buffer))
@@ -81,7 +80,13 @@
                                    (slot . 0)
                                    (window-width . 30)
                                    (no-other-window . t))))
-    (select-window aide-persp-side-bar-window)))
+    aide-persp-side-bar-window))
+
+(defun aide-persp-side-bar-show ()
+  "Show perspective sidebar and focus on it."
+  (interactive)
+  (aide-persp-side-bar--ensure-displayed)
+  (select-window aide-persp-side-bar-window))
 
 (defun aide-persp-side-bar-toggle ()
   "Toggle perspective sidebar."
@@ -127,8 +132,8 @@
         (current-persp (persp-current-name))
         (all-persps (persp-names)))
     (erase-buffer)
-    (insert "Perspective Side Bar\n")
-    (insert "====================\n\n")
+    (insert "aide side bar\n")
+    (insert "=============\n\n")
     (if all-persps
         (dolist (persp all-persps)
           (if (string= persp current-persp)
@@ -145,20 +150,11 @@
                                  (aide-session-status-format persp))))
             (insert (if status-str
                         (format "    %s\n" status-str)
-                      "\n")))
-          ;; Blank line between perspectives
-          (insert "\n"))
+                      "\n"))))
       (insert "No perspectives\n"))
     (goto-char (point-min))
     (setq buffer-read-only t)
     (use-local-map keymap)))
-
-(defun aide-persp-side-bar--highlight-current ()
-  "Update highlight for current perspective."
-  (when (and aide-persp-side-bar-window
-             (window-live-p aide-persp-side-bar-window))
-    (with-current-buffer (window-buffer aide-persp-side-bar-window)
-      (aide-persp-side-bar--render-buffer))))
 
 (defun aide-persp-side-bar--create-keymap ()
   "Create keymap for perspective sidebar."
@@ -188,27 +184,21 @@ When called interactively, also re-scan the session status directory."
   (when (and (called-interactively-p 'any)
              (fboundp 'aide-session-status--scan-directory))
     (aide-session-status--scan-directory))
-  (when (and aide-persp-side-bar-window
-             (window-live-p aide-persp-side-bar-window))
-    (with-current-buffer (window-buffer aide-persp-side-bar-window)
-      (aide-persp-side-bar--render-buffer))))
+  (let ((buffer (get-buffer aide-persp-side-bar-buffer-name)))
+    (when (and buffer
+               aide-persp-side-bar-window
+               (window-live-p aide-persp-side-bar-window))
+      (save-selected-window
+        (with-current-buffer buffer
+          (aide-persp-side-bar--render-buffer))))))
 
 (defun aide-persp-side-bar-on-new-perspective ()
   "Handle new perspective creation - show sidebar if enabled."
-  ;; Remember the original window
-  (let ((original-window (selected-window)))
-    ;; Wait briefly until perspective switch completes
-    (run-with-idle-timer 0.01 nil
-                         (lambda ()
-                           (if aide-persp-side-bar-auto-show-on-new
-                               (progn
-                                 ;; Show sidebar (rendering is also performed internally)
-                                 (aide-persp-side-bar-show)
-                                 ;; Return focus to the original window
-                                 (when (window-live-p original-window)
-                                   (select-window original-window)))
-                             ;; Only refresh if auto-show is disabled
-                             (aide-persp-side-bar-refresh))))))
+  (run-with-idle-timer 0.01 nil
+                       (lambda ()
+                         (if aide-persp-side-bar-auto-show-on-new
+                             (aide-persp-side-bar--ensure-displayed)
+                           (aide-persp-side-bar-refresh)))))
 
 ;; Auto-refresh when perspective changes
 (advice-add 'persp-switch :after
