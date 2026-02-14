@@ -24,10 +24,10 @@
             src = ./aide-session-status.el;
             packageRequires = [ pkgs.emacsPackages.perspective ];
           };
-          aide-persp-side-bar = pkgs.emacsPackages.trivialBuild {
-            pname = "aide-persp-side-bar";
+          aide-persp-sidebar = pkgs.emacsPackages.trivialBuild {
+            pname = "aide-persp-sidebar";
             version = "0.1.0";
-            src = ./aide-persp-side-bar.el;
+            src = ./aide-persp-sidebar.el;
             packageRequires = [ pkgs.emacsPackages.perspective ];
           };
         };

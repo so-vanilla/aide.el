@@ -1,0 +1,183 @@
+#+TITLE: AIDE - Emacs AI Development Environment
+#+AUTHOR: Omura Shuto
+
+* 概要
+
+Claude Code IDE (=claude-code-ide.el=) との連携を強化する3つのEmacsパッケージ群。
+
+- セッションの状態追跡 (working/waiting/idle)
+- modeline へのセッション情報表示 (モデル名、コンテキスト使用率、コスト、時間)
+- perspective.el ベースのサイドバーによるワークスペース管理
+
+要件: Emacs 28.1+, =perspective.el= 2.0+
+
+* パッケージ構成
+
+| パッケージ               | 概要                                     |
+|--------------------------+------------------------------------------|
+| =aide-session-status=    | セッション状態(working/waiting/idle)の追跡 |
+| =aide-modeline=          | セッション情報の modeline 表示             |
+| =aide-persp-sidebar=    | perspective 一覧サイドバー + ステータス表示 |
+
+* aide-session-status
+
+Claude Code の hook 経由で書き出されるステータスファイル (=/tmp/claude-code-status/*.json=) を file-notify (inotify) + ポーリングで監視し、各 perspective の Claude Code セッション状態を提供する。
+
+** Options
+
+| Variable                                   | Type      | Default                     | 説明                                     |
+|--------------------------------------------+-----------+-----------------------------+------------------------------------------|
+| =aide-session-status-data-directory=       | directory | =/tmp/claude-code-status/=  | ステータスJSONファイルの格納ディレクトリ  |
+| =aide-session-status-poll-interval=        | number    | =5.0=                       | file-notify 不可時のポーリング間隔 (秒)   |
+
+** Faces
+
+| Face                            | デフォルト          | 用途                            |
+|---------------------------------+---------------------+---------------------------------|
+| =aide-session-status-working=   | =#61afef= (blue)    | Claude 処理中                   |
+| =aide-session-status-waiting=   | =#e5c07b= (yellow)  | ユーザー応答待ち                 |
+| =aide-session-status-idle=      | =#98c379= (green)   | 入力待ち                        |
+| =aide-session-status-none=      | =#5c6370= (gray)    | セッションなし                   |
+
+** Minor Mode
+
+=aide-session-status-mode= (global) — 有効化でディレクトリ監視を開始する。
+
+* aide-modeline
+
+Claude Code の =statusline.sh= が書き出す中間ファイル (=/tmp/claude-code/*.json=) を読み取り、セッションバッファの modeline にセッション情報を表示する。doom-modeline にも対応。
+
+** Options
+
+| Variable                         | Type      | Default                             | 説明                          |
+|----------------------------------+-----------+-------------------------------------+-------------------------------|
+| =aide-modeline-data-directory=   | directory | =/tmp/claude-code/=                 | 中間JSONファイルのディレクトリ |
+| =aide-modeline-update-interval=  | number    | =3.0=                               | ポーリング間隔 (秒)           |
+| =aide-modeline-format-string=    | string    | =" %m │ Ctx:%c%% │ $%d │ %t "= | フォーマット文字列            |
+
+*** フォーマットトークン
+
+| トークン | 展開内容                |
+|----------+-------------------------|
+| =%m=     | モデル名                |
+| =%c=     | コンテキスト使用率 (%)  |
+| =%d=     | コスト (USD)            |
+| =%t=     | セッション経過時間      |
+
+** Faces
+
+| Face                                | 条件                 | 用途                 |
+|-------------------------------------+----------------------+----------------------|
+| =aide-modeline-normal=              | コンテキスト < 75%   | 通常表示             |
+| =aide-modeline-context-warning=     | 75% ≤ コンテキスト < 90% | 警告表示         |
+| =aide-modeline-context-critical=    | コンテキスト ≥ 90%   | 危険表示             |
+
+** Minor Mode
+
+=aide-modeline-mode= (global) — 有効化でポーリングを開始し、セッションバッファの modeline を差し替える。
+
+* aide-persp-sidebar
+
+perspective.el の全 perspective を左サイドウィンドウに一覧表示する。現在の perspective をハイライトし、=aide-session-status= と連携して各 perspective の Claude Code セッション状態も表示する。
+
+** Commands
+
+| Command                              | 説明                                 |
+|--------------------------------------+--------------------------------------|
+| =aide-persp-sidebar-show=           | サイドバーを表示しフォーカスを移動    |
+| =aide-persp-sidebar-toggle=         | サイドバーの表示/非表示を切り替え     |
+| =aide-persp-sidebar-close=          | サイドバーを閉じる                    |
+| =aide-persp-sidebar-focus=          | サイドバーにフォーカスを移動          |
+| =aide-persp-sidebar-resize=         | サイドバー幅を30にリセット            |
+| =aide-persp-sidebar-refresh=        | サイドバーを再描画 (手動時はステータスも再スキャン) |
+| =aide-persp-sidebar-select-current= | ポイント位置の perspective に切り替え |
+
+** Options
+
+| Variable                              | Type    | Default | 説明                                          |
+|---------------------------------------+---------+---------+-----------------------------------------------|
+| =aide-persp-sidebar-auto-show-on-new= | boolean | =t=     | 新規 perspective 作成時にサイドバーを自動表示  |
+
+** Keybindings (サイドバー内)
+
+| Key       | コマンド                               |
+|-----------+----------------------------------------|
+| =n= / =j=  | =persp-next=                           |
+| =p= / =k=  | =persp-prev=                           |
+| =RET=     | =aide-persp-sidebar-select-current=   |
+| =SPC=     | =aide-persp-sidebar-select-current=   |
+| =g=       | =aide-persp-sidebar-refresh=          |
+| =r=       | =aide-persp-sidebar-resize=           |
+| =q=       | =aide-persp-sidebar-close=            |
+
+** 自動リフレッシュ
+
+以下の perspective 操作に advice で連動してサイドバーを更新する:
+
+=persp-switch=, =persp-new=, =persp-kill=, =persp-rename=, =persp-next=, =persp-prev=, =persp-switch-last=, =persp-kill-others=, =persp-state-load=, =persp-state-restore=
+
+* セットアップ
+
+** statusline.sh の設定
+
+Claude Code の =settings.json= に statusline コマンドとして登録する:
+
+#+begin_src json
+{
+  "statusline": {
+    "command": "/path/to/aide/statusline.sh"
+  }
+}
+#+end_src
+
+=statusline.sh= は stdin からセッションJSONを受け取り、必要なフィールドを抽出して =/tmp/claude-code/<md5>.json= に書き出す。stdout は空にして statusline UI を非表示にする。
+
+** Nix でのインストール
+
+flake input として追加し、=packages= からビルドできる:
+
+#+begin_src nix
+# flake.nix の inputs に追加
+aide.url = "github:so-vanilla/aide";
+
+# overlay や emacsWithPackages 内で
+aide.packages.${system}.aide-modeline
+aide.packages.${system}.aide-session-status
+aide.packages.${system}.aide-persp-sidebar
+#+end_src
+
+** use-package 設定例
+
+#+begin_src emacs-lisp
+(use-package aide-session-status
+  :config
+  (aide-session-status-mode 1))
+
+(use-package aide-modeline
+  :config
+  (aide-modeline-mode 1))
+
+(use-package aide-persp-sidebar
+  :after perspective
+  :bind (("C-x p s" . aide-persp-sidebar-toggle)))
+#+end_src
+
+* データフロー
+
+#+begin_example
+[Claude Code]
+  │
+  ├─ statusline hook ──→ statusline.sh ──→ /tmp/claude-code/<md5>.json
+  │                                              │
+  │                                              └──→ aide-modeline (polling)
+  │                                                        │
+  │                                                        └──→ modeline 表示
+  │
+  └─ session-status hook ──→ /tmp/claude-code-status/<md5>.json
+                                    │
+                                    └──→ aide-session-status (inotify + polling)
+                                                │
+                                                └──→ aide-persp-sidebar (refresh hook)
+                                                           │
+                                                           └──→ サイドバー表示
+#+end_example

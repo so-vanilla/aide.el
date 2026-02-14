@@ -31,7 +31,7 @@
 ;; を提供するモジュール。
 ;;
 ;; file-notify (inotify) でディレクトリを監視し、フォールバックでポーリング。
-;; aide-persp-side-bar と連携してサイドバーにステータスを表示する。
+;; aide-persp-sidebar と連携してサイドバーにステータスを表示する。
 
 ;;; Code:
 
