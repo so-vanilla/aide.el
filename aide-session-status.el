@@ -1,9 +1,9 @@
 ;;; aide-session-status.el --- Claude Code session status tracking -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025 Omura Shuto
+;; Copyright (C) 2026 Shuto Omura
 
-;; Author: Omura Shuto <somura-vanilla@so-icecream.com>
-;; Maintainer: Omura Shuto <somura-vanilla@so-icecream.com>
+;; Author: Shuto Omura <somura-vanilla@so-icecream.com>
+;; Maintainer: Shuto Omura <somura-vanilla@so-icecream.com>
 ;; URL: https://github.com/so-vanilla/aide
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "28.1") (perspective "2.0"))
@@ -26,12 +26,13 @@
 
 ;;; Commentary:
 
-;; Claude Code の hook 経由で書き出されるセッションステータスファイルを
-;; 監視し、各 perspective の Claude Code セッション状態（working/waiting/idle）
-;; を提供するモジュール。
+;; Module that monitors session status files written via Claude Code
+;; hooks, and provides Claude Code session state (working/waiting/idle)
+;; for each perspective.
 ;;
-;; file-notify (inotify) でディレクトリを監視し、フォールバックでポーリング。
-;; aide-persp-side-bar と連携してサイドバーにステータスを表示する。
+;; Uses file-notify (inotify) for directory watching with polling
+;; fallback.  Integrates with aide-persp-side-bar to display status
+;; indicators in the sidebar.
 
 ;;; Code:
 

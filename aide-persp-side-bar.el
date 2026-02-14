@@ -1,9 +1,9 @@
 ;;; aide-persp-side-bar.el --- Sidebar for perspective.el -*- lexical-binding: t; -*-
 
-;; Copyright (C) 2025 Omura Shuto
+;; Copyright (C) 2026 Shuto Omura
 
-;; Author: Omura Shuto <somura-vanilla@so-icecream.com>
-;; Maintainer: Omura Shuto <somura-vanilla@so-icecream.com>
+;; Author: Shuto Omura <somura-vanilla@so-icecream.com>
+;; Maintainer: Shuto Omura <somura-vanilla@so-icecream.com>
 ;; URL: https://github.com/so-vanilla/aide
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "25.1") (perspective "2.0"))
